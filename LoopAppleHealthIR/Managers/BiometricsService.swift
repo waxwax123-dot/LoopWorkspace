@@ -55,6 +55,8 @@ public final class BiometricsService: BiometricsServiceProtocol {
 
     private let store = HKHealthStore()
     private let subject = PassthroughSubject<BiometricsSnapshot, Never>()
+    /// Serial queue that serialises all reads/writes of `snapshot`.
+    private let snapshotQueue = DispatchQueue(label: "com.loopkit.Loop.BiometricsService.snapshot")
     private var snapshot = BiometricsSnapshot()
     private var observerQueries: [HKObserverQuery] = []
 
@@ -135,38 +137,58 @@ public final class BiometricsService: BiometricsServiceProtocol {
 
         group.enter()
         fetchSleep { [weak self] hours in
-            self?.snapshot.sleepHours = hours
-            group.leave()
+            guard let self = self else { group.leave(); return }
+            self.snapshotQueue.async {
+                self.snapshot.sleepHours = hours
+                group.leave()
+            }
         }
 
         group.enter()
         fetchQuantitySum(type: stepType, unit: .count()) { [weak self] value in
-            self?.snapshot.stepCount = value
-            group.leave()
+            guard let self = self else { group.leave(); return }
+            self.snapshotQueue.async {
+                self.snapshot.stepCount = value
+                group.leave()
+            }
         }
 
         group.enter()
         fetchLatestQuantity(type: hrvType, unit: HKUnit.secondUnit(with: .milli)) { [weak self] value in
-            self?.snapshot.hrvSDNN = value
-            group.leave()
+            guard let self = self else { group.leave(); return }
+            self.snapshotQueue.async {
+                self.snapshot.hrvSDNN = value
+                group.leave()
+            }
         }
 
         group.enter()
         fetchQuantitySum(type: exerciseType, unit: .minute()) { [weak self] value in
-            self?.snapshot.exerciseMinutes = value
-            group.leave()
+            guard let self = self else { group.leave(); return }
+            self.snapshotQueue.async {
+                self.snapshot.exerciseMinutes = value
+                group.leave()
+            }
         }
 
         group.enter()
         fetchLatestQuantity(type: heartRateType,
                             unit: HKUnit.count().unitDivided(by: .minute())) { [weak self] value in
-            self?.snapshot.heartRate = value
-            group.leave()
+            guard let self = self else { group.leave(); return }
+            self.snapshotQueue.async {
+                self.snapshot.heartRate = value
+                group.leave()
+            }
         }
 
-        group.notify(queue: .main) { [weak self] in
+        // snapshotQueue is used as the notify target so the final read of
+        // `snapshot` is also serialised, then we hop to main for publishing.
+        group.notify(queue: snapshotQueue) { [weak self] in
             guard let self = self else { return }
-            self.subject.send(self.snapshot)
+            let current = self.snapshot
+            DispatchQueue.main.async {
+                self.subject.send(current)
+            }
         }
     }
 
@@ -244,3 +266,4 @@ public final class BiometricsService: BiometricsServiceProtocol {
         return HKQuery.predicateForSamples(withStart: start, end: nil, options: .strictStartDate)
     }
 }
+
