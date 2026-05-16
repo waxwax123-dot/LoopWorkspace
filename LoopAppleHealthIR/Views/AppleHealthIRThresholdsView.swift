@@ -9,6 +9,7 @@ import SwiftUI
 public struct AppleHealthIRThresholdsView: View {
 
     @State private var thresholds: AppleHealthIRThresholds = .current
+    @State private var validationError: String? = nil
     @Environment(\.dismiss) private var dismiss
 
     public init() {}
@@ -21,10 +22,19 @@ public struct AppleHealthIRThresholdsView: View {
                 hrvSection
                 exerciseSection
 
+                if let error = validationError {
+                    Section {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.footnote)
+                    }
+                }
+
                 Section {
                     Button(role: .destructive) {
                         AppleHealthIRThresholds.resetToDefaults()
                         thresholds = .defaults
+                        validationError = nil
                     } label: {
                         Text("Reset to Defaults")
                             .frame(maxWidth: .infinity, alignment: .center)
@@ -35,7 +45,14 @@ public struct AppleHealthIRThresholdsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        if thresholds.isValid {
+                            thresholds.save()
+                            dismiss()
+                        } else {
+                            validationError = validationMessage(for: thresholds)
+                        }
+                    }
                 }
             }
         }
@@ -76,7 +93,6 @@ public struct AppleHealthIRThresholdsView: View {
             effectRow(label: "Severe effect",     value: $thresholds.sleepSevereEffect,      suffix: "%")
             effectRow(label: "Substantial effect", value: $thresholds.sleepSubstantialEffect, suffix: "%")
             effectRow(label: "Moderate effect",   value: $thresholds.sleepModerateEffect,    suffix: "%")
-            effectRow(label: "Mild effect",       value: $thresholds.sleepMildEffect,        suffix: "%")
         }
     }
 
@@ -198,7 +214,10 @@ public struct AppleHealthIRThresholdsView: View {
             Stepper("", value: value, in: range, step: step)
                 .labelsHidden()
                 .onChange(of: value.wrappedValue) { _ in
-                    if thresholds.isValid { thresholds.save() }
+                    if thresholds.isValid {
+                        thresholds.save()
+                        validationError = nil
+                    }
                 }
         }
     }
@@ -214,8 +233,51 @@ public struct AppleHealthIRThresholdsView: View {
             Stepper("", value: value, in: -100.0...100.0, step: 1.0)
                 .labelsHidden()
                 .onChange(of: value.wrappedValue) { _ in
-                    if thresholds.isValid { thresholds.save() }
+                    if thresholds.isValid {
+                        thresholds.save()
+                        validationError = nil
+                    }
                 }
         }
     }
+
+    // MARK: - Validation message
+
+    private func validationMessage(for t: AppleHealthIRThresholds) -> String {
+        if !(t.sleepSevereBelow < t.sleepSubstantialBelow &&
+             t.sleepSubstantialBelow < t.sleepModerateBelow &&
+             t.sleepModerateBelow < t.sleepMildBelow) {
+            return "Sleep thresholds must be in ascending order."
+        }
+        if !(abs(t.sleepModerateEffect) <= abs(t.sleepSubstantialEffect) &&
+             abs(t.sleepSubstantialEffect) <= abs(t.sleepSevereEffect)) {
+            return "Sleep effects must increase with severity (|moderate| ≤ |substantial| ≤ |severe|)."
+        }
+        if !(t.stepsLowMin < t.stepsModerateMin &&
+             t.stepsModerateMin < t.stepsHighMin &&
+             t.stepsHighMin < t.stepsVeryHighMin) {
+            return "Step thresholds must be in ascending order."
+        }
+        if !(abs(t.stepsLowEffect) <= abs(t.stepsModerateEffect) &&
+             abs(t.stepsModerateEffect) <= abs(t.stepsHighEffect) &&
+             abs(t.stepsHighEffect) <= abs(t.stepsVeryHighEffect)) {
+            return "Step effects must increase with activity (|low| ≤ |moderate| ≤ |high| ≤ |veryHigh|)."
+        }
+        if !(t.hrvLowBelow < t.hrvModerateBelow && t.hrvModerateBelow < t.hrvHighAbove) {
+            return "HRV thresholds must be in ascending order."
+        }
+        if !(abs(t.hrvLowEffect) >= abs(t.hrvModerateEffect)) {
+            return "HRV effects are out of order: |low| must be ≥ |moderate|."
+        }
+        if !(t.exerciseModerateMin < t.exerciseSubstantialMin &&
+             t.exerciseSubstantialMin < t.exerciseHeavyMin) {
+            return "Exercise thresholds must be in ascending order."
+        }
+        if !(abs(t.exerciseModerateEffect) <= abs(t.exerciseSubstantialEffect) &&
+             abs(t.exerciseSubstantialEffect) <= abs(t.exerciseHeavyEffect)) {
+            return "Exercise effects must increase with intensity (|moderate| ≤ |substantial| ≤ |heavy|)."
+        }
+        return "One or more values are invalid. Please review all fields."
+    }
 }
+
