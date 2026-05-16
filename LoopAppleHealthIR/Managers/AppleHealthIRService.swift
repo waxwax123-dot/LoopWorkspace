@@ -132,7 +132,7 @@ public class BaseAppleHealthIRService: AppleHealthIRServiceProtocol {
                         value: hours)
         } else if hours < t.sleepMildBelow {
             return lerp(from: t.sleepModerateEffect,
-                        to: t.sleepMildEffect,
+                        to: 0.0,
                         lowerBound: t.sleepModerateBelow,
                         upperBound: t.sleepMildBelow,
                         value: hours)
@@ -237,3 +237,4 @@ public class BaseAppleHealthIRService: AppleHealthIRServiceProtocol {
         return startValue + fraction * (endValue - startValue)
     }
 }
+
