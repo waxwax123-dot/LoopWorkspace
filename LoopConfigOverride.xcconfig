@@ -1,10 +1,10 @@
 #include? "../../LoopConfigOverride.xcconfig"
 
 // Override this if you don't want the default com.${DEVELOPMENT_TEAM}.loopkit that loop uses
-// MAIN_APP_BUNDLE_IDENTIFIER = com.857J74MM4M.loopkit.LoopDev
+MAIN_APP_BUNDLE_IDENTIFIER = com.857J74MM4M.loopkit.LoopDev
 
 // Customize this to change the app name displayed
-//MAIN_APP_DISPLAY_NAME = LoopDev
+MAIN_APP_DISPLAY_NAME = LoopDev
 
 // Customize this to change the URL to open Loop to something other than the display name
 //URL_SCHEME_NAME = $(MAIN_APP_DISPLAY_NAME)
