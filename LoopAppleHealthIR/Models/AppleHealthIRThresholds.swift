@@ -35,8 +35,6 @@ public struct AppleHealthIRThresholds: Codable, Equatable {
     public var sleepSevereEffect: Double      // e.g.  40.0
     public var sleepSubstantialEffect: Double // e.g.  25.0
     public var sleepModerateEffect: Double    // e.g.  10.0
-    public var sleepMildEffect: Double        // e.g.   5.0
-
     // MARK: - Step thresholds (steps/day)
 
     public var stepsLowMin: Double            // e.g.  2_000
@@ -84,7 +82,6 @@ public struct AppleHealthIRThresholds: Codable, Equatable {
         sleepSevereEffect: 40.0,
         sleepSubstantialEffect: 25.0,
         sleepModerateEffect: 10.0,
-        sleepMildEffect: 5.0,
         stepsLowMin: 2_000,
         stepsModerateMin: 7_000,
         stepsHighMin: 10_000,
@@ -143,23 +140,41 @@ public struct AppleHealthIRThresholds: Codable, Equatable {
 
     /// Returns true when all ordering constraints are satisfied.
     public var isValid: Bool {
+        // Threshold ordering: sleep bands must be strictly ascending
         guard sleepSevereBelow < sleepSubstantialBelow,
               sleepSubstantialBelow < sleepModerateBelow,
               sleepModerateBelow < sleepMildBelow else { return false }
 
+        // Sleep effect ordering: more deprivation must produce >= effect magnitude
+        guard abs(sleepModerateEffect) <= abs(sleepSubstantialEffect),
+              abs(sleepSubstantialEffect) <= abs(sleepSevereEffect) else { return false }
+
+        // Threshold ordering: steps bands must be strictly ascending
         guard stepsLowMin < stepsModerateMin,
               stepsModerateMin < stepsHighMin,
               stepsHighMin < stepsVeryHighMin else { return false }
 
+        // Steps effect ordering: higher activity must produce >= effect magnitude
+        guard abs(stepsLowEffect) <= abs(stepsModerateEffect),
+              abs(stepsModerateEffect) <= abs(stepsHighEffect),
+              abs(stepsHighEffect) <= abs(stepsVeryHighEffect) else { return false }
+
+        // Threshold ordering: HRV bands must be strictly ascending
         guard hrvLowBelow < hrvModerateBelow,
               hrvModerateBelow < hrvHighAbove else { return false }
 
+        // HRV effect ordering: veryLow (low band) stress must produce >= effect magnitude than low (moderate band)
+        guard abs(hrvLowEffect) >= abs(hrvModerateEffect) else { return false }
+
+        // Threshold ordering: exercise bands must be strictly ascending
         guard exerciseModerateMin < exerciseSubstantialMin,
               exerciseSubstantialMin < exerciseHeavyMin else { return false }
 
+        // Exercise effect ordering: more exercise must produce >= effect magnitude
         guard abs(exerciseModerateEffect) <= abs(exerciseSubstantialEffect),
               abs(exerciseSubstantialEffect) <= abs(exerciseHeavyEffect) else { return false }
 
         return true
     }
 }
+
