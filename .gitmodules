@@ -1,6 +1,7 @@
 [submodule "Loop"]
 	path = Loop
 	url = https://github.com/waxwax123-dot/Loop.git
+	branch = feature/apple-health-ir
 [submodule "LoopKit"]
 	path = LoopKit
 	url = https://github.com/LoopKit/LoopKit.git
